@@ -15,6 +15,7 @@ namespace UnrealEngine.Runtime
 
         public static Dictionary<Type, ManagedClass> Classes { get; private set; }
         public static Dictionary<IntPtr, ManagedClass> ClassesByAddress { get; private set; }
+        public static Dictionary<long, ManagedClass> UFunctionAddrToClasses { get; private set; }
 
         public static Dictionary<Type, ManagedInterface> Interfaces { get; private set; }
         public static Dictionary<IntPtr, ManagedInterface> InterfacesByAddress { get; private set; }
@@ -32,6 +33,7 @@ namespace UnrealEngine.Runtime
         {
             Classes = new Dictionary<Type, ManagedClass>();
             ClassesByAddress = new Dictionary<IntPtr, ManagedClass>();
+            UFunctionAddrToClasses = new Dictionary<long, ManagedClass>();
 
             Interfaces = new Dictionary<Type, ManagedInterface>();
             InterfacesByAddress = new Dictionary<IntPtr, ManagedInterface>();
@@ -346,9 +348,12 @@ namespace UnrealEngine.Runtime
             /// The callback function which native code will call, this will prep the parameters for calling the managed invoker
             /// </summary>
             public UFunction.FuncInvokerNative FunctionInvoker { get; private set; }
+            public static UFunction.FuncInvokerNative USharpClassFunctionInvoker { get; private set; }
             public IntPtr FunctionInvokerAddress { get; private set; }
 
-            public UClass.ClassConstructorType ClassConstructor { get; private set; }
+            public delegate void USharpClassConstructorType(IntPtr classAddress, IntPtr objectInitializerPtr);
+            public USharpClassConstructorType LocalUSharpClassConstructor { get; private set; }
+            public static USharpClassConstructorType USharpClassConstructor { get; private set; }
 
             /// <summary>
             /// The first native (non-managed) class constructor. This is used for calling the parent class constructor before 
@@ -363,9 +368,11 @@ namespace UnrealEngine.Runtime
 
             public ManagedClass()
             {
-                FunctionInvoker = InvokeFunction;
+                USharpClassFunctionInvoker = InvokeFunctionStatic;
+                FunctionInvoker = USharpClassFunctionInvoker;
                 FunctionInvokerAddress = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(FunctionInvoker);
-                ClassConstructor = Constructor;
+                LocalUSharpClassConstructor = Constructor2;
+                USharpClassConstructor = ConstructorStatic;
             }
 
             /// <summary>
@@ -403,6 +410,27 @@ namespace UnrealEngine.Runtime
                 ManagedUnrealTypes.ClassConstructor(this, objectInitializerPtr);
             }
 
+            private void Constructor2(IntPtr classAddress, IntPtr objectInitializerPtr)
+            {
+                ManagedUnrealTypes.ClassConstructor(this, objectInitializerPtr);
+            }
+
+            internal static void ConstructorStatic(IntPtr classAddress, IntPtr objectInitializerPtr)
+            {
+                try
+                {
+                    ManagedClass owner;
+                    if (ClassesByAddress.TryGetValue(classAddress, out owner))
+                    {
+                        owner.Constructor(objectInitializerPtr);
+                    }
+                }
+                catch (Exception e)
+                {
+                    FMessage.LogException(e, nameof(ConstructorStatic));
+                }
+            }
+
             public void SetFallbackInvokers()
             {
                 if (managedInvokersByAddress != null)
@@ -413,7 +441,6 @@ namespace UnrealEngine.Runtime
                         Native_USharpClass.SetFallbackFunctionInvoker(Address, function);
                     }
                 }
-                Native_USharpClass.SetFunctionInvokerAddress(Address, IntPtr.Zero);
             }
 
             public void AddInvoker(ManagedUnrealFunctionInfo functionInfo, IntPtr function)
@@ -452,6 +479,24 @@ namespace UnrealEngine.Runtime
                 if (managedInvokersByFunctionInfo.TryGetValue(functionInfo, out managedInvoker))
                 {
                     managedInvokersByAddress.Add(function, managedInvoker);
+                    UFunctionAddrToClasses.Add(function.ToInt64(), this);
+                }
+            }
+
+            internal static void InvokeFunctionStatic(IntPtr obj, IntPtr stackPtr, IntPtr result)
+            {
+                try
+                {
+                    FFrame stack = new FFrame(stackPtr);
+                    ManagedClass owner;
+                    if (UFunctionAddrToClasses.TryGetValue(stack.CurrentNativeFunction.ToInt64(), out owner))
+                    {
+                        owner.InvokeFunction(obj, stackPtr, result);
+                    }
+                }
+                catch (Exception e)
+                {
+                    FMessage.LogException(e, nameof(InvokeFunctionStatic));
                 }
             }
 

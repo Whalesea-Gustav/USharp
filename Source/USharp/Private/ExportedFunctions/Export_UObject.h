@@ -1,3 +1,5 @@
+#include "BmwGameThreadDefer.h"
+
 CSEXPORT void CSCONV Export_UObject_PostInitProperties(UObject* instance)
 {
 	instance->PostInitProperties();
@@ -468,6 +470,16 @@ CSEXPORT void CSCONV Export_UObject_ProcessEvent(UObject* instance, UFunction* F
 	instance->ProcessEvent(Function, Parms);
 }
 
+CSEXPORT int32 CSCONV Export_UObject_ProcessEvent_GameThreadDefer(UObject* instance, UFunction* Function, void* Parms)
+{
+	return GetBmwGameThreadDeferQueue().ProcessEvent(instance, Function, Parms);
+}
+
+CSEXPORT void CSCONV Export_UObject_FlushAll_GameThreadDefer()
+{
+	GetBmwGameThreadDeferQueue().Flush();
+}
+
 CSEXPORT int32 CSCONV Export_UObject_GetFunctionCallspace(UObject* instance, UFunction* Function, FFrame* Stack)
 {
 	return instance->GetFunctionCallspace(Function, Stack);
@@ -632,6 +644,8 @@ void CSCONV Export_UObject(RegisterFunc registerFunc)
 	REGISTER_FUNC(Export_UObject_GetArchetypeInstances);
 	REGISTER_FUNC(Export_UObject_InstanceSubobjectTemplates);
 	REGISTER_FUNC(Export_UObject_ProcessEvent);
+	REGISTER_FUNC(Export_UObject_ProcessEvent_GameThreadDefer);
+	REGISTER_FUNC(Export_UObject_FlushAll_GameThreadDefer);
 	REGISTER_FUNC(Export_UObject_GetFunctionCallspace);
 	REGISTER_FUNC(Export_UObject_CallRemoteFunction);
 	REGISTER_FUNC(Export_UObject_CallFunctionByNameWithArguments);

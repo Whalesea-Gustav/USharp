@@ -147,6 +147,38 @@ namespace UnrealEngine.Runtime
             return Native_UFunction.Get_ParmsSize(function);
         }
 
+        public static bool EnableGameThreadDefer = false;
+
+        public static void InvokeStaticFunctionOptimized(IntPtr obj, IntPtr function, IntPtr args, int argsSize)
+        {
+            bool deferred = false;
+            InvokeStaticFunctionOptimized(obj, function, args, argsSize, ref deferred);
+        }
+
+        public static void InvokeStaticFunctionOptimized(IntPtr obj, IntPtr function, IntPtr args, int argsSize, ref bool deferred)
+        {
+            InvokeFunctionOptimized(obj, function, args, argsSize, ref deferred);
+        }
+
+        public static void InvokeFunctionOptimized(IntPtr obj, IntPtr function, IntPtr args, int argsSize)
+        {
+            bool deferred = false;
+            InvokeFunctionOptimized(obj, function, args, argsSize, ref deferred);
+        }
+
+        public static void InvokeFunctionOptimized(IntPtr obj, IntPtr function, IntPtr args, int argsSize, ref bool deferred)
+        {
+            if (deferred)
+            {
+                if (Native_UObject.ProcessEvent_GameThreadDefer(obj, function, args) == 0)
+                    deferred = false;
+            }
+            else
+            {
+                Native_UObject.ProcessEvent(obj, function, args);
+            }
+        }
+
         public static void InvokeStaticFunction(IntPtr obj, IntPtr function, IntPtr args, int argsSize)
         {
             // obj will always be IntPtr.Zero but requiring it for now so InvokeFunction / InvokeStaticFunction have the same signature

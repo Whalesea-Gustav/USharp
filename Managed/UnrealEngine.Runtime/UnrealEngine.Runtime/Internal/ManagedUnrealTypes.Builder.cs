@@ -85,6 +85,7 @@ namespace UnrealEngine.Runtime
                     managedClass.SetFallbackInvokers();
                 }
             }
+            UFunctionAddrToClasses.Clear();
         }
 
         private static bool GetCachedType(string path, out string hash, out IntPtr obj)
@@ -444,7 +445,7 @@ namespace UnrealEngine.Runtime
             if (!managedClass.IsInterface)
             {
                 // Always update the class constructor as the C# constructor is trashed on hotreload
-                Native_USharpClass.SetSharpClassConstructor(sharpClass, Marshal.GetFunctionPointerForDelegate(managedClass.ClassConstructor));
+                Native_USharpClass.SetSharpClassConstructor(sharpClass, Marshal.GetFunctionPointerForDelegate(managedClass.LocalUSharpClassConstructor));
             }
 
             if (!managedClass.HasChanged)
@@ -534,10 +535,6 @@ namespace UnrealEngine.Runtime
                 }
 
                 // Create functions
-                if (!managedClass.IsInterface)
-                {
-                    Native_USharpClass.SetFunctionInvokerAddress(sharpClass, managedClass.FunctionInvokerAddress);
-                }
                 foreach (ManagedUnrealFunctionInfo functionInfo in managedClass.TypeInfo.Functions.Reverse<ManagedUnrealFunctionInfo>())
                 {
                     IntPtr function = CreateFunction(sharpClass, parentClass, functionInfo);
@@ -607,12 +604,12 @@ namespace UnrealEngine.Runtime
 
                 if (managedClass.TypeInfo.Functions.Count > 0 && !managedClass.IsInterface)
                 {
-                    Native_USharpClass.SetFunctionInvokerAddress(managedClass.Address, managedClass.FunctionInvokerAddress);
                     foreach (ManagedUnrealFunctionInfo functionInfo in managedClass.TypeInfo.Functions)
                     {
                         using (FStringUnsafe functionNameUnsafe = new FStringUnsafe(functionInfo.GetName()))
                         {
-                            IntPtr function = Native_USharpClass.SetFunctionInvoker(managedClass.Address, ref functionNameUnsafe.Array);
+                            IntPtr function = Native_USharpClass.SetFunctionInvoker(managedClass.Address, ref functionNameUnsafe.Array,
+                                managedClass.FunctionInvokerAddress);
                             if (function != IntPtr.Zero)
                             {
                                 managedClass.AddInvoker(functionInfo, function);
@@ -1191,7 +1188,7 @@ namespace UnrealEngine.Runtime
             // Setting up the function address must come before Bind/StaticLink.
             // UFunction::Bind will look up the function address and use it to assign UFunction::Func
             {
-                IntPtr nativeInvokerAddress = Native_USharpClass.GetNativeFunctionInvoker();
+                IntPtr nativeInvokerAddress = System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(ManagedClass.USharpClassFunctionInvoker);
                 using (FStringUnsafe nameUnsafe = new FStringUnsafe(functionInfo.GetName()))
                 {
                     // This is the same as FNativeFunctionRegistrar::RegisterFunction()

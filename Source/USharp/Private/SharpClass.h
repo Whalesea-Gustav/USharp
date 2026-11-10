@@ -27,14 +27,12 @@ public:
 	// hotreload lookups are slower. Combine / cache them to improve lookup speeds.
 	TMap<FName, FSharpFunctionLookup> FuncMapEx;
 	
-	typedef void (CSCONV *ManagedClassConstructorType)(const FObjectInitializer&);
+	typedef void (CSCONV *ManagedClassConstructorType)(USharpClass*, const FObjectInitializer&);
 	typedef void (CSCONV *ManagedFunctionInvokerType)(UObject*, FFrame&, void*const);
 	
 	ManagedClassConstructorType ManagedConstructor;
 	UClass::ClassConstructorType NativeParentConstructor;
 	
-	ManagedFunctionInvokerType ManagedFunctionInvoker;
-
 	//virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 };
 

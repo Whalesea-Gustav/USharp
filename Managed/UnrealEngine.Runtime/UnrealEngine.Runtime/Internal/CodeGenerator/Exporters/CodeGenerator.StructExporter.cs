@@ -487,7 +487,7 @@ namespace UnrealEngine.Runtime
                         interfaceImplBuilder.AppendLine(GetFunctionSignature(module, function, unrealStruct, null, "public",
                             FunctionSigFlags.None, namespaces));
                         interfaceImplBuilder.OpenBrace();
-                        AppendFunctionBody(interfaceImplBuilder, function, false, false, true, namespaces);
+                        AppendFunctionBody(interfaceImplBuilder, function, false, false, true, namespaces, unrealStruct);
                         interfaceImplBuilder.CloseBrace();
                         builder.AppendLine();
                     }
@@ -504,7 +504,7 @@ namespace UnrealEngine.Runtime
                             // Define the declaration method which will call the correct UFunction for the UObject instance
                             builder.AppendLine(GetFunctionSignature(module, function, unrealStruct, namespaces));
                             builder.OpenBrace();
-                            AppendFunctionBody(builder, function, false, false, true, namespaces);
+                            AppendFunctionBody(builder, function, false, false, true, namespaces, unrealStruct);
                             builder.CloseBrace();
                             builder.AppendLine();
                         }
@@ -525,7 +525,7 @@ namespace UnrealEngine.Runtime
                             builder.AppendLine(GetFunctionSignature(module, function, unrealStruct, namespaces));
                         }
                         builder.OpenBrace();
-                        AppendFunctionBody(builder, function, false, false, false, namespaces);
+                        AppendFunctionBody(builder, function, false, false, false, namespaces, unrealStruct);
                         builder.CloseBrace();
                         builder.AppendLine();
                     }

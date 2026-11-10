@@ -1,4 +1,6 @@
 #include "SharpClass.h"
+#include "SharpFunctionRegistration.h"
+#include "SharpConstructorDispatch.h"
 #include "VTableHacks.h"
 
 USharpClass* GetUSharpClass(UClass* Class)
@@ -95,62 +97,10 @@ CSEXPORT void CSCONV Export_USharpClass_SetFallbackFunctionInvoker(USharpClass* 
 	}
 }
 
-void USharpClassFunctionInvoker(UObject* Context, FFrame& Stack, RESULT_DECL)
+CSEXPORT UFunction* CSCONV Export_USharpClass_SetFunctionInvoker(USharpClass* instance, const FString& FunctionName,
+    FNativeFuncPtr Invoker)
 {
-	// TODO: Improve this. This used to be just a callback directly to C#, but due to calling convention differences
-	// this wasn't super safe. Looking up the class hierarchy for function calls probably isn't the best idea. Is there
-	// some way to get the USharpClass any faster (and idealy the target C# target function too, as there is a dictionary lookup in C#!)
-	//
-	// Maybe get a GCHandle for the UFunction.FuncInvokerManaged, and do a dictionary lookup based on Stack.CurrentNativeFunction?
-	// This would idealy be done per class though as a global dictionary of functions could be quite slow for lookups...
-	// - We could also make our functions custom UFunction instances which hold an additional member pointing to the managed function address?
-	//   this would be much more efficient and we wouldn't need to do any dictionary lookups or hierarchy lookups.
-	//   (this could be accessed via Stack.CurrentNativeFunction). Based on the hierarchy there is only UFunction / UDelegateFunction to deal with.
-	//   - This may cause some issues where there are explicit checks for UFunction::StaticClass() / UDelegateFunction::StaticClass()
-	
-	// NOTE: When dealing with interfaces this could be pointing to a UClass rather than USharpClass. If we ever
-	// allow BlueprintCallable without being a blueprint event then this will definitely be a UClass. If this is 
-	// ever true we should check for Class->HasAnyClassFlags(CLASS_Interface) and call FallbackFunctionInvoker().
-	
-	check(Stack.CurrentNativeFunction);
-	USharpClass* Class = GetUSharpClass(Stack.CurrentNativeFunction->GetOwnerClass());
-	check(Class != nullptr);
-	if (Class->ManagedFunctionInvoker != nullptr)
-	{
-		Class->ManagedFunctionInvoker(Context, Stack, RESULT_PARAM);
-	}
-	else
-	{
-		FallbackFunctionInvoker(Context, Stack, RESULT_PARAM);
-	}
-}
-
-CSEXPORT FNativeFuncPtr CSCONV Export_USharpClass_GetNativeFunctionInvoker()
-{
-	return (FNativeFuncPtr)&USharpClassFunctionInvoker;
-}
-
-CSEXPORT UFunction* CSCONV Export_USharpClass_SetFunctionInvoker(USharpClass* instance, const FString& FunctionName)
-{
-	FNativeFuncPtr NativeInvoker = (FNativeFuncPtr)&USharpClassFunctionInvoker;
-	
-	if (instance->FuncMapEx.Num() == instance->NativeFunctionLookupTable.Num())
-	{
-		FSharpFunctionLookup* SharpFunctionLookup = instance->FuncMapEx.Find(FName(*FunctionName));
-		if (SharpFunctionLookup != nullptr && SharpFunctionLookup->Index >= 0)
-		{
-			SharpFunctionLookup->Pointer = NativeInvoker;
-			SharpFunctionLookup->Function->SetNativeFunc(NativeInvoker);
-			instance->NativeFunctionLookupTable[SharpFunctionLookup->Index].Pointer = NativeInvoker;
-			return SharpFunctionLookup->Function;
-		}
-	}
-	return nullptr;
-}
-
-CSEXPORT void CSCONV Export_USharpClass_SetFunctionInvokerAddress(USharpClass* instance, USharpClass::ManagedFunctionInvokerType Invoker)
-{
-	instance->ManagedFunctionInvoker = Invoker;
+    return InstallSharpFunctionInvoker(instance, FName(*FunctionName), Invoker);
 }
 
 // Could possibly use IMPLEMENT_INTRINSIC_CLASS so this can be defined in USharpClass directly?
@@ -163,7 +113,7 @@ void SharpClassConstructor(const FObjectInitializer& ObjectInitializer)
 	
 	if (SharpClass->ManagedConstructor != nullptr)
 	{
-		SharpClass->ManagedConstructor(ObjectInitializer);
+		DispatchSharpManagedConstructor(SharpClass, ObjectInitializer);
 		
 		if (!SharpClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 		{
@@ -255,9 +205,7 @@ CSEXPORT void CSCONV Export_USharpClass(RegisterFunc registerFunc)
 {
 	REGISTER_FUNC(Export_USharpClass_ClearFuncMapEx);
 	REGISTER_FUNC(Export_USharpClass_SetFallbackFunctionInvoker);
-	REGISTER_FUNC(Export_USharpClass_GetNativeFunctionInvoker);
 	REGISTER_FUNC(Export_USharpClass_SetFunctionInvoker);
-	REGISTER_FUNC(Export_USharpClass_SetFunctionInvokerAddress);
 	REGISTER_FUNC(Export_USharpClass_SetSharpClassConstructor);
 	REGISTER_FUNC(Export_USharpClass_Get_ManagedConstructor);
 	REGISTER_FUNC(Export_USharpClass_Set_ManagedConstructor);

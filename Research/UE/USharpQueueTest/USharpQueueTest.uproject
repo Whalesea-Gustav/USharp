@@ -1,0 +1,6 @@
+{
+  "FileVersion": 3,
+  "Category": "Research",
+  "Description": "Isolated BMW USharp queue core validation on UE5; no full USharp runtime.",
+  "Modules": [{"Name": "BmwQueueTest", "Type": "Runtime", "LoadingPhase": "Default"}]
+}

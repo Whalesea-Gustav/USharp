@@ -100,6 +100,8 @@ namespace UnrealEngine.Runtime.Native
         public delegate void Del_GetArchetypeInstances(IntPtr instance, IntPtr instances);
         public delegate void Del_InstanceSubobjectTemplates(IntPtr instance, IntPtr instanceGraph);
         public delegate void Del_ProcessEvent(IntPtr instance, IntPtr function, IntPtr parms);
+        public delegate int Del_ProcessEvent_GameThreadDefer(IntPtr instance, IntPtr function, IntPtr parms);
+        public delegate void Del_FlushAll_GameThreadDefer();
         public delegate int Del_GetFunctionCallspace(IntPtr instance, IntPtr function, IntPtr stack);
         public delegate csbool Del_CallRemoteFunction(IntPtr instance, IntPtr function, IntPtr parms, IntPtr outParms, IntPtr stack);
         public delegate csbool Del_CallFunctionByNameWithArguments(IntPtr instance, ref FScriptArray cmd, IntPtr ar, IntPtr executor, csbool forceCallWithNonExec);
@@ -202,6 +204,8 @@ namespace UnrealEngine.Runtime.Native
         public static Del_GetArchetypeInstances GetArchetypeInstances;
         public static Del_InstanceSubobjectTemplates InstanceSubobjectTemplates;
         public static Del_ProcessEvent ProcessEvent;
+        public static Del_ProcessEvent_GameThreadDefer ProcessEvent_GameThreadDefer;
+        public static Del_FlushAll_GameThreadDefer FlushAll_GameThreadDefer;
         public static Del_GetFunctionCallspace GetFunctionCallspace;
         public static Del_CallRemoteFunction CallRemoteFunction;
         public static Del_CallFunctionByNameWithArguments CallFunctionByNameWithArguments;

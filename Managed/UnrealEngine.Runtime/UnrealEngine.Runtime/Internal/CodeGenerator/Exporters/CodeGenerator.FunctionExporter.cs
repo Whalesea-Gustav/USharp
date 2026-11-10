@@ -779,7 +779,7 @@ namespace UnrealEngine.Runtime
         }
 
         private void AppendFunctionBody(CSharpTextBuilder builder, UFunction function, bool isGetter, bool isSetter,
-            bool perInstanceFunctionAddress, List<string> namespaces)
+            bool perInstanceFunctionAddress, List<string> namespaces, UStruct parentStruct = null)
         {
             string functionName = GetFunctionName(function);
             UProperty blueprintReturnProperty = function.GetBlueprintReturnProperty();
@@ -881,6 +881,7 @@ namespace UnrealEngine.Runtime
             bool hasRefOrOutParam = false;
             bool hasReturn = false;
             bool hasParamWithDtor = false;
+            bool hasNonConstOut = false;
 
             foreach (KeyValuePair<UProperty, string> param in paramNames)
             {
@@ -896,6 +897,9 @@ namespace UnrealEngine.Runtime
                 {
                     hasRefOrOutParam = true;
                 }
+                if (parameter.HasAnyPropertyFlags(EPropertyFlags.OutParm) &&
+                    !parameter.HasAnyPropertyFlags(EPropertyFlags.ConstParm))
+                    hasNonConstOut = true;
 
                 if (!Settings.LazyFunctionParamInitDestroy)
                 {
@@ -922,6 +926,10 @@ namespace UnrealEngine.Runtime
                 }
             }
 
+            bool canDefer = !isDelegate && !hasReturn && !hasNonConstOut && parentStruct != null &&
+                CodeGenGlobalConf.ClassSupportDeferGameThread.Contains(parentStruct.PathName);
+            if (canDefer)
+                builder.AppendLine("bool IsDeferGameThread = NativeReflection.EnableGameThreadDefer;");
             builder.AppendLine();
             if (isDelegate)
             {
@@ -929,8 +937,12 @@ namespace UnrealEngine.Runtime
             }
             else
             {
-                builder.AppendLine(invokeFunction + "(" + targetAddress + ", " + functionAddressName + ", " + 
-                    Settings.VarNames.ParamsBuffer + ", " + functionName + Settings.VarNames.ParamsSize + ");");
+                string call = canDefer
+                    ? (isStatic ? "NativeReflection.InvokeStaticFunctionOptimized" : "NativeReflection.InvokeFunctionOptimized")
+                    : invokeFunction;
+                builder.AppendLine(call + "(" + targetAddress + ", " + functionAddressName + ", " +
+                    Settings.VarNames.ParamsBuffer + ", " + functionName + Settings.VarNames.ParamsSize +
+                    (canDefer ? ", ref IsDeferGameThread" : "") + ");");
             }
 
             if (hasReturn || hasRefOrOutParam || hasParamWithDtor)
@@ -961,7 +973,7 @@ namespace UnrealEngine.Runtime
                     if (!Settings.LazyFunctionParamInitDestroy && !parameter.HasAnyPropertyFlags(EPropertyFlags.NoDestructor))
                     {
                         // Parameter requires destruction
-                        builder.AppendLine(Names.NativeReflection_DestroyValue_InContainer + "(" +
+                        builder.AppendLine((canDefer ? "if(!IsDeferGameThread)" : "") + Names.NativeReflection_DestroyValue_InContainer + "(" +
                             functionName + "_" + paramName + Settings.VarNames.PropertyAddress + "." + Names.UFieldAddress_Address + 
                             ", " + Settings.VarNames.ParamsBuffer + ");");
                     }
